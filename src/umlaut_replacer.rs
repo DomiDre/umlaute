@@ -64,3 +64,15 @@ pub fn replace_umlaute(text: &String, ignore_words: &Vec<String>) -> String {
         &not_allowed_ranges
     )
 }
+
+
+#[test]
+fn replace_text() {
+    use crate::umlaut_replacer;
+    assert_eq!(
+        "Schöne Grüsse".to_string(),
+        umlaut_replacer::replace_umlaute(
+            &"Schoene Gruesse".to_string(),
+            &Vec::new()
+    ));
+}
