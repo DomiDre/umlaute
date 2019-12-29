@@ -1,85 +1,107 @@
-use regex::Regex;
-use std::io::prelude::*;
-use std::{env, fs, io, process};
+#![recursion_limit="256"]
+use yew::prelude::*;
 
-/// Opens a text file and returns the content as String
-fn open_file(file_path: &str) -> Result<String, io::Error> {
-    let mut file = fs::File::open(file_path)?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
-    Ok(content)
+mod umlaut_replacer;
+use umlaut_replacer::replace_umlaute;
+
+struct Model {
+    entered_text: String,
+    edited_text: String,
+    entered_ignore_word: String,
+    ignore_words: Vec<String>
 }
 
-/// Replace a word within text by another, while ignoring certain ranges of the
-/// string
-fn replace_ignoring_words(
-    text: &String,
-    replace_word: &str,
-    replace_with: &str,
-    ignore_ranges: &Vec<std::ops::Range<usize>>,
-) -> String {
-    let mut edited_text = text.clone();
-    let re = Regex::new(replace_word).unwrap();
-    
-    let replace_shift = replace_with.len() - replace_word.len();
-    let mut byte_pos = 0;
-    let mut track_shift = 0;
-    'replace_str: loop {
-        if let Some(matched_pos) = re.find_at(text, byte_pos) {
-            let start_idx = matched_pos.start();
-            let end_idx = matched_pos.end();
-            byte_pos = end_idx;
-            for range in ignore_ranges.iter() {
-                if start_idx >= range.start && end_idx <= range.end {
-                    continue 'replace_str;
-                } else {
-                    edited_text.replace_range(
-                        start_idx+track_shift .. end_idx+track_shift,
-                        replace_with);
-                    track_shift += replace_shift;
-                }
-
-            }
-        } else{
-            break;
-        }
-    }
-    edited_text
+enum Msg {
+    SetText(String),
+    AddIgnoreWord,
+    AddIgnoreText(String)
 }
 
-/// Searches `text` for Umlaute (oe, ae, ue) and replaces with (ö, ä, ü)
-/// while ignoring replacements in words given in `ignore_words`
-fn replace_umlaute(text: &String, ignore_words: Option<Vec<String>>) -> String {
-    
-    // extract from ignore_words which ranges are not allowed
-    let mut not_allowed_ranges = Vec::new();
-    if let Some(ign_strings) = ignore_words {
-        for ign_string in ign_strings.iter() {
-            let re_ign = Regex::new(ign_string).unwrap();
-            for matched_ign in re_ign.find_iter(text) {
-                not_allowed_ranges.push(matched_ign.start()..matched_ign.end());
-            }
+impl Component for Model {
+    type Message = Msg;
+    type Properties = ();
+    fn create(_: Self::Properties, _: ComponentLink<Self>) -> Self {
+        Self {
+            entered_text: String::new(),
+            edited_text: String::new(),
+            entered_ignore_word: String::new(),
+            ignore_words: Vec::new()
         }
     }
 
-    // replace umlaute
-    let text = replace_ignoring_words(text, "oe", "ö", &not_allowed_ranges);
-    let text = replace_ignoring_words(&text, r"ae", "ä", &not_allowed_ranges);
-    let text = replace_ignoring_words(&text, r"ue", "ü", &not_allowed_ranges);
-    text
+    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+        match msg {
+            Msg::SetText(s) => {
+                self.entered_text = s;
+                self.perform_substitution();
+            },
+            Msg::AddIgnoreText(s) => {
+                self.entered_ignore_word = s;
+            },
+            Msg::AddIgnoreWord => {
+                self.ignore_words.push(self.entered_ignore_word.clone());
+                self.entered_ignore_word = String::new();
+                self.perform_substitution();
+            }
+        }
+        true
+    }
+
+    fn view(&self) -> Html<Self> {
+        html! {
+            <section class="app-container">
+                <header>
+                    <h1>{"Umlaute Substituter"}</h1>
+                </header>
+                <main>
+                    <div>
+                        <textarea type="text", placeholder="Enter Text",
+                        oninput=|i| Msg::SetText(i.value)
+                        rows="10", cols="80">
+                            {&self.entered_text}
+                        </textarea>
+                    </div>
+                    <div>
+                        <ul>
+                            { for self.ignore_words.iter().map(|word| self.view_ignore_word(word)) }
+                        </ul>
+                        <input type="text", placeholder="Add Ignore Word"
+                        oninput=|i| Msg::AddIgnoreText(i.value)
+                        value=&self.entered_ignore_word/>
+                        <button onclick=|_| Msg::AddIgnoreWord>{ "ADD" }</button>
+                    </div>
+                </main>
+                <output>
+                    <textarea type="text"
+                    rows="10", cols="80">
+                        { &self.edited_text }
+                    </textarea>
+                </output>
+            </section>
+        }
+    }
+
+}
+
+impl Model {
+    fn view_ignore_word(&self, word: &String) -> Html<Model> {
+        html! {
+            <li>
+                {word}
+            </li>
+        }
+    }
+
+    fn perform_substitution(&mut self) {
+        self.edited_text = replace_umlaute(
+            &self.entered_text,
+            &self.ignore_words
+        );
+    }
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() < 2 {
-        eprintln!("Provide path to textfile.");
-        process::exit(1);
-    }
-
-    let file_content = open_file(&args[1]).unwrap();
-
-    // let file_content = replace_umlaute(file_content, None);
-    let file_content = replace_umlaute(&file_content, Some(vec!["Dominique".to_string()]));
-    println!("{}", file_content);
+    yew::initialize();
+    App::<Model>::new().mount_to_body();
+    yew::run_loop();
 }
