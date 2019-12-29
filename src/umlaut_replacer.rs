@@ -5,7 +5,7 @@ use regex::Regex;
 fn replace_ignoring_words(
     text: &String,
     replace_pairs: Vec<(&str, &str)>,
-    ignore_ranges: &Vec<std::ops::Range<usize>>,
+    ignore_ranges: &Vec<(usize, usize)>,
 ) -> String {
     let mut edited_text = text.clone(); // create a copy that will be edited
     let mut track_shift = 0; // track if the idx to edit change with respect to the original text
@@ -23,8 +23,8 @@ fn replace_ignoring_words(
                     position = end_idx;
                     // check if bytes that shall be edited are within the ignore range
                     for range in ignore_ranges.iter() {
-                        if start_idx >= range.start
-                        && end_idx <= range.end {
+                        if start_idx >= range.0
+                        && end_idx <= range.1 {
                             continue 'replace_str;
                         }
                     }
@@ -52,7 +52,7 @@ pub fn replace_umlaute(text: &String, ignore_words: &Vec<String>) -> String {
     for ign_string in ignore_words.iter() {
         let re_ign = Regex::new(ign_string).unwrap();
         for matched_ign in re_ign.find_iter(text) {
-            not_allowed_ranges.push(matched_ign.start()..matched_ign.end());
+            not_allowed_ranges.push((matched_ign.start(),matched_ign.end()));
         }
     }
 
