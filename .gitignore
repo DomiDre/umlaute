@@ -1,2 +1,6 @@
 /target
 **/*.rs.bk
+Cargo.lock
+pkg/
+dist/
+node_modules/

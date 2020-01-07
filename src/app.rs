@@ -1,17 +1,14 @@
-#![recursion_limit="256"]
 use yew::prelude::*;
+use crate::umlaut_replacer::replace_umlaute;
 
-mod umlaut_replacer;
-use umlaut_replacer::replace_umlaute;
-
-struct Model {
+pub struct Model {
     link: ComponentLink<Self>,
     entered_text: String,
     edited_text: String,
     ignore_words: Vec<String>
 }
 
-enum Msg {
+pub enum Msg {
     SetText(String)
 }
 
@@ -151,10 +148,4 @@ impl Model {
             &self.ignore_words
         );
     }
-}
-
-fn main() {
-    yew::initialize();
-    App::<Model>::new().mount_to_body();
-    yew::run_loop();
 }
